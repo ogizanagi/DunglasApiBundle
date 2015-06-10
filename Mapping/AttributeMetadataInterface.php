@@ -136,4 +136,18 @@ interface AttributeMetadataInterface
      * @return string|null
      */
     public function getIri();
+
+    /**
+     * Sets converted name.
+     *
+     * @param string $convertedName
+     */
+    public function setConvertedName($convertedName);
+
+    /**
+     * Gets converted name.
+     *
+     * @return string|null
+     */
+    public function getConvertedName();
 }

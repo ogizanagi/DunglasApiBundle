@@ -90,6 +90,14 @@ class AttributeMetadata implements AttributeMetadataInterface
      *           {@link getIri()} instead.
      */
     public $iri;
+    /**
+     * @var string
+     *
+     * @internal This property is public in order to reduce the size of the
+     *           class' serialized representation. Do not access it. Use
+     *           {@link getConvertedName()} instead.
+     */
+    public $convertedName = false;
 
     /**
      * @param string $name
@@ -236,6 +244,22 @@ class AttributeMetadata implements AttributeMetadataInterface
     }
 
     /**
+     * {@inheritdoc}
+     */
+    public function setConvertedName($convertedName)
+    {
+        $this->convertedName = $convertedName;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getConvertedName()
+    {
+        return $this->convertedName;
+    }
+
+    /**
      * Returns the names of the properties that should be serialized.
      *
      * @return string[]
@@ -251,6 +275,7 @@ class AttributeMetadata implements AttributeMetadataInterface
             'required',
             'link',
             'iri',
+            'convertedName',
         ];
     }
 }

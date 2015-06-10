@@ -15,6 +15,8 @@ use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\QueryBuilder;
 use Dunglas\ApiBundle\Api\IriConverterInterface;
 use Dunglas\ApiBundle\Api\ResourceInterface;
+use Dunglas\ApiBundle\Mapping\AttributeMetadataInterface;
+use Dunglas\ApiBundle\Mapping\ClassMetadataFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 
@@ -44,18 +46,20 @@ class SearchFilter extends AbstractFilter
     private $propertyAccessor;
 
     /**
-     * @param ManagerRegistry           $managerRegistry
-     * @param IriConverterInterface     $iriConverter
-     * @param PropertyAccessorInterface $propertyAccessor
-     * @param null|array                $properties       Null to allow filtering on all properties with the exact strategy or a map of property name with strategy.
+     * @param ManagerRegistry               $managerRegistry
+     * @param ClassMetadataFactoryInterface $classMetadataFactory
+     * @param IriConverterInterface         $iriConverter
+     * @param PropertyAccessorInterface     $propertyAccessor
+     * @param null|array                    $properties Null to allow filtering on all properties with the exact strategy or a map of property name with strategy.
      */
     public function __construct(
         ManagerRegistry $managerRegistry,
+        ClassMetadataFactoryInterface $classMetadataFactory,
         IriConverterInterface $iriConverter,
         PropertyAccessorInterface $propertyAccessor,
         array $properties = null
     ) {
-        parent::__construct($managerRegistry, $properties);
+        parent::__construct($managerRegistry, $classMetadataFactory, $properties);
 
         $this->iriConverter = $iriConverter;
         $this->propertyAccessor = $propertyAccessor;
@@ -66,10 +70,23 @@ class SearchFilter extends AbstractFilter
      */
     public function apply(ResourceInterface $resource, QueryBuilder $queryBuilder, Request $request)
     {
-        $metadata = $this->getClassMetadata($resource);
-        $fieldNames = array_flip($metadata->getFieldNames());
+        $doctrineMetadata = $this->getClassMetadata($resource);
+        $fieldNames = array_flip($doctrineMetadata->getFieldNames());
 
-        foreach ($this->extractProperties($request) as $property => $value) {
+        $mappingMetadata = $this->getMappingMetadata($resource);
+        /** @var AttributeMetadataInterface[] $metadataByConvertedName */
+        $metadataByConvertedName = [];
+        foreach ($mappingMetadata->getAttributes() as $attributeMetadata) {
+            $metadataByConvertedName[$attributeMetadata->getConvertedName()] = $attributeMetadata;
+        }
+
+        foreach ($this->extractProperties($request) as $paramName => $value) {
+
+            if (!isset($metadataByConvertedName[$paramName])) {
+                continue;
+            }
+            $property = $metadataByConvertedName[$paramName]->getName();
+
             if (!is_string($value) || !$this->isPropertyEnabled($property)) {
                 continue;
             }
@@ -85,8 +102,8 @@ class SearchFilter extends AbstractFilter
                     ->andWhere(sprintf('o.%1$s LIKE :%1$s', $property))
                     ->setParameter($property, $partial ? sprintf('%%%s%%', $value) : $value)
                 ;
-            } elseif ($metadata->isSingleValuedAssociation($property)
-                || $metadata->isCollectionValuedAssociation($property)
+            } elseif ($doctrineMetadata->isSingleValuedAssociation($property)
+                || $doctrineMetadata->isCollectionValuedAssociation($property)
             ) {
                 $value = $this->getFilterValueFromUrl($value);
 
@@ -105,23 +122,33 @@ class SearchFilter extends AbstractFilter
     public function getDescription(ResourceInterface $resource)
     {
         $description = [];
-        $metadata = $this->getClassMetadata($resource);
+        $doctrineMetadata = $this->getClassMetadata($resource);
+        $mappingMetadata = $this->getMappingMetadata($resource);
 
-        foreach ($metadata->getFieldNames() as $fieldName) {
-            $found = isset($this->properties[$fieldName]);
+        foreach ($attributes = $mappingMetadata->getAttributes() as $attributeMetadata) {
+            $found = isset($this->properties[$attributeMetadata->getName()]);
             if ($found || null === $this->properties) {
-                $description[$fieldName] = [
-                    'property' => $fieldName,
-                    'type' => $metadata->getTypeOfField($fieldName),
+                $description[$attributeMetadata->getConvertedName()] = [
+                    'property' => $attributeMetadata->getName(),
+                    'type' => $doctrineMetadata->getTypeOfField($attributeMetadata->getName()),
                     'required' => false,
-                    'strategy' => $found ? $this->properties[$fieldName] : self::STRATEGY_EXACT,
+                    'strategy' => $found ? $this->properties[$attributeMetadata->getName()] : self::STRATEGY_EXACT,
                 ];
             }
         }
 
-        foreach ($metadata->getAssociationNames() as $associationName) {
+        foreach ($doctrineMetadata->getAssociationNames() as $associationName) {
             if ($this->isPropertyEnabled($associationName)) {
-                $description[$associationName] = [
+
+                $convertedName = null;
+                foreach ($attributes as $attributeMetadata) {
+                    if ($attributeMetadata->getName() === $associationName) {
+                        $convertedName = $attributeMetadata->getConvertedName();
+                        break;
+                    }
+                }
+
+                $description[$convertedName] = [
                     'property' => $associationName,
                     'type' => 'iri',
                     'required' => false,

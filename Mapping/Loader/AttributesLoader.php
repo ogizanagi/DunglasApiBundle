@@ -17,6 +17,7 @@ use Dunglas\ApiBundle\Mapping\ClassMetadata;
 use Dunglas\ApiBundle\Util\ReflectionTrait;
 use PropertyInfo\PropertyInfoInterface;
 use Symfony\Component\Serializer\Mapping\Factory\ClassMetadataFactoryInterface;
+use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
 
 /**
  * Uses serialization groups or alternatively reflection to populate attributes.
@@ -39,15 +40,21 @@ class AttributesLoader implements LoaderInterface
      * @var ClassMetadataFactoryInterface|null
      */
     private $serializerClassMetadataFactory;
+    /**
+     * @var NameConverterInterface|null
+     */
+    private $nameConverter;
 
     public function __construct(
         ResourceCollectionInterface $resourceCollection,
         PropertyInfoInterface $propertyInfo,
-        ClassMetadataFactoryInterface $serializerClassMetadataFactory = null
+        ClassMetadataFactoryInterface $serializerClassMetadataFactory = null,
+        NameConverterInterface $nameConverter = null
     ) {
         $this->resourceCollection = $resourceCollection;
         $this->propertyInfo = $propertyInfo;
         $this->serializerClassMetadataFactory = $serializerClassMetadataFactory;
+        $this->nameConverter = $nameConverter;
     }
 
     /**
@@ -196,6 +203,7 @@ class AttributesLoader implements LoaderInterface
         }
 
         $attributeMetadata = new AttributeMetadata($attributeName);
+        $attributeMetadata->setConvertedName($this->nameConverter ? $this->nameConverter->normalize($attributeName) : $attributeName);
         $classMetadata->addAttribute($attributeMetadata);
 
         $reflectionProperty = $this->getReflectionProperty($classMetadata->getReflectionClass(), $attributeName);

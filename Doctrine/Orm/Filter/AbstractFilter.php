@@ -14,6 +14,7 @@ namespace Dunglas\ApiBundle\Doctrine\Orm\Filter;
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\Common\Persistence\Mapping\ClassMetadata;
 use Dunglas\ApiBundle\Api\ResourceInterface;
+use Dunglas\ApiBundle\Mapping\ClassMetadataFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -35,10 +36,19 @@ abstract class AbstractFilter implements FilterInterface
      * @var ManagerRegistry
      */
     protected $managerRegistry;
+    /**
+     * @var ClassMetadataFactoryInterface
+     */
+    private $classMetadataFactory;
 
-    public function __construct(ManagerRegistry $managerRegistry, array $properties = null)
+    public function __construct(
+        ManagerRegistry $managerRegistry,
+        ClassMetadataFactoryInterface $classMetadataFactory,
+        array $properties = null
+    )
     {
         $this->managerRegistry = $managerRegistry;
+        $this->classMetadataFactory = $classMetadataFactory;
         $this->properties = $properties;
     }
 
@@ -82,5 +92,15 @@ abstract class AbstractFilter implements FilterInterface
     protected function extractProperties(Request $request)
     {
         return $request->query->all();
+    }
+
+    protected function getMappingMetadata($resource)
+    {
+        return $this->classMetadataFactory->getMetadataFor(
+            $resource->getEntityClass(),
+            $resource->getNormalizationGroups(),
+            $resource->getDenormalizationGroups(),
+            $resource->getValidationGroups()
+        );
     }
 }

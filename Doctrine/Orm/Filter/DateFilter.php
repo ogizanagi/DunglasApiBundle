@@ -13,6 +13,7 @@ namespace Dunglas\ApiBundle\Doctrine\Orm\Filter;
 
 use Doctrine\ORM\QueryBuilder;
 use Dunglas\ApiBundle\Api\ResourceInterface;
+use Dunglas\ApiBundle\Mapping\AttributeMetadata;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -127,10 +128,10 @@ class DateFilter extends AbstractFilter
     public function getDescription(ResourceInterface $resource)
     {
         $description = [];
-        foreach ($this->getClassMetadata($resource)->getFieldNames() as $fieldName) {
-            if ($this->isPropertyEnabled($fieldName)) {
-                $description += $this->getFilterDescription($fieldName, self::PARAMETER_BEFORE);
-                $description += $this->getFilterDescription($fieldName, self::PARAMETER_AFTER);
+        foreach ($this->getMappingMetadata($resource)->getAttributes() as $attributeMetadata) {
+            if ($this->isPropertyEnabled($attributeMetadata->getName())) {
+                $description += $this->getFilterDescription($attributeMetadata, self::PARAMETER_BEFORE);
+                $description += $this->getFilterDescription($attributeMetadata, self::PARAMETER_AFTER);
             }
         }
 
@@ -140,16 +141,16 @@ class DateFilter extends AbstractFilter
     /**
      * Gets filter description.
      *
-     * @param string $fieldName
+     * @param AttributeMetadata $attributeMetadata
      * @param string $period
      *
      * @return array
      */
-    private function getFilterDescription($fieldName, $period)
+    private function getFilterDescription($attributeMetadata, $period)
     {
         return [
-            sprintf('%s[%s]', $fieldName, $period) => [
-                'property' => $fieldName,
+            sprintf('%s[%s]', $attributeMetadata->getConvertedName(), $period) => [
+                'property' => $attributeMetadata->getName(),
                 'type' => '\DateTime',
                 'required' => false,
             ],
