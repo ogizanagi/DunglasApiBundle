@@ -14,6 +14,11 @@
             <argument>null</argument>
         </service>
 
+        <service id="api.mapping.class_metadata_registry_factory" class="Dunglas\ApiBundle\Mapping\ClassMetadataRegistryFactory" public="false">
+            <argument type="service" id="api.mapping.class_metadata_factory" />
+            <argument type="service" id="doctrine" />
+        </service>
+
         <!-- Cache -->
 
         <service id="api.cache_warmer.metadata" class="Dunglas\ApiBundle\CacheWarmer\MetadataCacheWarmer">

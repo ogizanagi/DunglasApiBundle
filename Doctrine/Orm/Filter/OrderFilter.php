@@ -14,8 +14,7 @@ namespace Dunglas\ApiBundle\Doctrine\Orm\Filter;
 use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\QueryBuilder;
 use Dunglas\ApiBundle\Api\ResourceInterface;
-use Dunglas\ApiBundle\Mapping\AttributeMetadataInterface;
-use Dunglas\ApiBundle\Mapping\ClassMetadataFactoryInterface;
+use Dunglas\ApiBundle\Mapping\ClassMetadataRegistryFactory;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -37,13 +36,12 @@ class OrderFilter extends AbstractFilter
      * @param array|null      $properties      List of property names on which the filter will be enabled.
      */
     public function __construct(
-        ManagerRegistry $managerRegistry,
-        ClassMetadataFactoryInterface $classMetadataFactory,
+        ClassMetadataRegistryFactory $classMetadataRegistryFactory,
         $orderParameter,
         array $properties = null
     )
     {
-        parent::__construct($managerRegistry, $classMetadataFactory, $properties);
+        parent::__construct($classMetadataRegistryFactory, $properties);
 
         $this->orderParameter = $orderParameter;
     }
@@ -58,21 +56,14 @@ class OrderFilter extends AbstractFilter
      */
     public function apply(ResourceInterface $resource, QueryBuilder $queryBuilder, Request $request)
     {
-        $doctrineMetadata = $this->getClassMetadata($resource);
-        $fieldNames = array_flip($doctrineMetadata->getFieldNames());
-
-        $mappingMetadata = $this->getMappingMetadata($resource);
-        /** @var AttributeMetadataInterface[] $metadataByConvertedName */
-        $metadataByConvertedName = [];
-        foreach ($mappingMetadata->getAttributes() as $attributeMetadata) {
-            $metadataByConvertedName[$attributeMetadata->getConvertedName()] = $attributeMetadata;
-        }
+        $registry = $this->getClassMetadataRegistry($resource);
+        $fieldNames = array_flip($registry->getDoctrineMetadata()->getFieldNames());
 
         foreach ($this->extractProperties($request) as $paramName => $order) {
-            if (!isset($metadataByConvertedName[$paramName])) {
+            if (null === $attributeMetadata = $registry->getAttributeMetadata($paramName)) {
                 continue;
             }
-            $property = $metadataByConvertedName[$paramName]->getName();
+            $property = $attributeMetadata->getName();
             $order = strtoupper($order);
 
             if ($this->isPropertyEnabled($property) && isset($fieldNames[$property]) && ('ASC' === $order || 'DESC' === $order)) {
@@ -87,7 +78,7 @@ class OrderFilter extends AbstractFilter
     public function getDescription(ResourceInterface $resource)
     {
         $description = [];
-        $mappingMetadata = $this->getMappingMetadata($resource);
+        $mappingMetadata = $this->getClassMetadataRegistry($resource)->getMappingMetadata();
 
         foreach ($mappingMetadata->getAttributes() as $attributeMetadata) {
             if ($this->isPropertyEnabled($attributeMetadata->getName())) {

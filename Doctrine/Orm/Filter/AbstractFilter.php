@@ -11,10 +11,9 @@
 
 namespace Dunglas\ApiBundle\Doctrine\Orm\Filter;
 
-use Doctrine\Common\Persistence\ManagerRegistry;
-use Doctrine\Common\Persistence\Mapping\ClassMetadata;
 use Dunglas\ApiBundle\Api\ResourceInterface;
-use Dunglas\ApiBundle\Mapping\ClassMetadataFactoryInterface;
+use Dunglas\ApiBundle\Mapping\ClassMetadataRegistry;
+use Dunglas\ApiBundle\Mapping\ClassMetadataRegistryFactory;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -33,22 +32,16 @@ abstract class AbstractFilter implements FilterInterface
     protected $properties;
 
     /**
-     * @var ManagerRegistry
+     * @var ClassMetadataRegistryFactory
      */
-    protected $managerRegistry;
-    /**
-     * @var ClassMetadataFactoryInterface
-     */
-    private $classMetadataFactory;
+    protected $classMetadataRegistryFactory;
 
     public function __construct(
-        ManagerRegistry $managerRegistry,
-        ClassMetadataFactoryInterface $classMetadataFactory,
+        ClassMetadataRegistryFactory $classMetadataRegistryFactory,
         array $properties = null
     )
     {
-        $this->managerRegistry = $managerRegistry;
-        $this->classMetadataFactory = $classMetadataFactory;
+        $this->classMetadataRegistryFactory = $classMetadataRegistryFactory;
         $this->properties = $properties;
     }
 
@@ -57,17 +50,18 @@ abstract class AbstractFilter implements FilterInterface
      *
      * @param ResourceInterface $resource
      *
-     * @return ClassMetadata
+     * @return ClassMetadataRegistry
      */
-    protected function getClassMetadata(ResourceInterface $resource)
+    protected function getClassMetadataRegistry(ResourceInterface $resource)
     {
-        $entityClass = $resource->getEntityClass();
-
         return $this
-            ->managerRegistry
-            ->getManagerForClass($entityClass)
-            ->getClassMetadata($entityClass)
-        ;
+            ->classMetadataRegistryFactory
+            ->getMetadataRegistryFor(
+                $resource->getEntityClass(),
+                $resource->getNormalizationGroups(),
+                $resource->getDenormalizationGroups(),
+                $resource->getValidationGroups()
+            );
     }
 
     /**
@@ -92,15 +86,5 @@ abstract class AbstractFilter implements FilterInterface
     protected function extractProperties(Request $request)
     {
         return $request->query->all();
-    }
-
-    protected function getMappingMetadata($resource)
-    {
-        return $this->classMetadataFactory->getMetadataFor(
-            $resource->getEntityClass(),
-            $resource->getNormalizationGroups(),
-            $resource->getDenormalizationGroups(),
-            $resource->getValidationGroups()
-        );
     }
 }

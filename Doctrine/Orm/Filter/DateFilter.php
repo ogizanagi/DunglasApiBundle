@@ -45,9 +45,15 @@ class DateFilter extends AbstractFilter
      */
     public function apply(ResourceInterface $resource, QueryBuilder $queryBuilder, Request $request)
     {
+        $registry = $this->getClassMetadataRegistry($resource);
         $fieldNames = $this->getDateFieldNames($resource);
 
-        foreach ($this->extractProperties($request) as $property => $values) {
+        foreach ($this->extractProperties($request) as $paramName => $values) {
+            if (null === $attributeMetadata = $registry->getAttributeMetadata($paramName)) {
+                continue;
+            }
+            $property = $attributeMetadata->getName();
+
             // Expect $values to be an array having the period as keys and the date value as values
             if (!isset($fieldNames[$property]) || !is_array($values) || !$this->isPropertyEnabled($property)) {
                 continue;
@@ -128,7 +134,7 @@ class DateFilter extends AbstractFilter
     public function getDescription(ResourceInterface $resource)
     {
         $description = [];
-        foreach ($this->getMappingMetadata($resource)->getAttributes() as $attributeMetadata) {
+        foreach ($this->getClassMetadataRegistry($resource)->getMappingMetadata()->getAttributes() as $attributeMetadata) {
             if ($this->isPropertyEnabled($attributeMetadata->getName())) {
                 $description += $this->getFilterDescription($attributeMetadata, self::PARAMETER_BEFORE);
                 $description += $this->getFilterDescription($attributeMetadata, self::PARAMETER_AFTER);
@@ -166,7 +172,7 @@ class DateFilter extends AbstractFilter
      */
     private function getDateFieldNames(ResourceInterface $resource)
     {
-        $classMetadata = $this->getClassMetadata($resource);
+        $classMetadata = $this->getClassMetadataRegistry($resource)->getDoctrineMetadata();
         $dateFieldNames = [];
 
         foreach ($classMetadata->getFieldNames() as $fieldName) {

@@ -15,8 +15,8 @@ use Doctrine\Common\Persistence\ManagerRegistry;
 use Doctrine\ORM\QueryBuilder;
 use Dunglas\ApiBundle\Api\IriConverterInterface;
 use Dunglas\ApiBundle\Api\ResourceInterface;
-use Dunglas\ApiBundle\Mapping\AttributeMetadataInterface;
 use Dunglas\ApiBundle\Mapping\ClassMetadataFactoryInterface;
+use Dunglas\ApiBundle\Mapping\ClassMetadataRegistryFactory;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 
@@ -53,13 +53,12 @@ class SearchFilter extends AbstractFilter
      * @param null|array                    $properties Null to allow filtering on all properties with the exact strategy or a map of property name with strategy.
      */
     public function __construct(
-        ManagerRegistry $managerRegistry,
-        ClassMetadataFactoryInterface $classMetadataFactory,
+        ClassMetadataRegistryFactory $classMetadataRegistryFactory,
         IriConverterInterface $iriConverter,
         PropertyAccessorInterface $propertyAccessor,
         array $properties = null
     ) {
-        parent::__construct($managerRegistry, $classMetadataFactory, $properties);
+        parent::__construct($classMetadataRegistryFactory, $properties);
 
         $this->iriConverter = $iriConverter;
         $this->propertyAccessor = $propertyAccessor;
@@ -70,22 +69,15 @@ class SearchFilter extends AbstractFilter
      */
     public function apply(ResourceInterface $resource, QueryBuilder $queryBuilder, Request $request)
     {
-        $doctrineMetadata = $this->getClassMetadata($resource);
+        $registry = $this->getClassMetadataRegistry($resource);
+        $doctrineMetadata = $registry->getDoctrineMetadata();
         $fieldNames = array_flip($doctrineMetadata->getFieldNames());
 
-        $mappingMetadata = $this->getMappingMetadata($resource);
-        /** @var AttributeMetadataInterface[] $metadataByConvertedName */
-        $metadataByConvertedName = [];
-        foreach ($mappingMetadata->getAttributes() as $attributeMetadata) {
-            $metadataByConvertedName[$attributeMetadata->getConvertedName()] = $attributeMetadata;
-        }
-
         foreach ($this->extractProperties($request) as $paramName => $value) {
-
-            if (!isset($metadataByConvertedName[$paramName])) {
+            if (null === $attributeMetadata = $registry->getAttributeMetadata($paramName)) {
                 continue;
             }
-            $property = $metadataByConvertedName[$paramName]->getName();
+            $property = $attributeMetadata->getName();
 
             if (!is_string($value) || !$this->isPropertyEnabled($property)) {
                 continue;
@@ -122,8 +114,9 @@ class SearchFilter extends AbstractFilter
     public function getDescription(ResourceInterface $resource)
     {
         $description = [];
-        $doctrineMetadata = $this->getClassMetadata($resource);
-        $mappingMetadata = $this->getMappingMetadata($resource);
+        $registry = $this->getClassMetadataRegistry($resource);
+        $doctrineMetadata = $registry->getDoctrineMetadata();
+        $mappingMetadata = $registry->getMappingMetadata();
 
         foreach ($attributes = $mappingMetadata->getAttributes() as $attributeMetadata) {
             $found = isset($this->properties[$attributeMetadata->getName()]);
@@ -139,16 +132,8 @@ class SearchFilter extends AbstractFilter
 
         foreach ($doctrineMetadata->getAssociationNames() as $associationName) {
             if ($this->isPropertyEnabled($associationName)) {
-
-                $convertedName = null;
-                foreach ($attributes as $attributeMetadata) {
-                    if ($attributeMetadata->getName() === $associationName) {
-                        $convertedName = $attributeMetadata->getConvertedName();
-                        break;
-                    }
-                }
-
-                $description[$convertedName] = [
+                $attributeMappingMetdata = $registry->getAttributeMetadata($associationName);
+                $description[$attributeMappingMetdata->getConvertedName()] = [
                     'property' => $associationName,
                     'type' => 'iri',
                     'required' => false,
