@@ -35,4 +35,11 @@ class FilterExtension implements QueryExtensionInterface
             }
         }
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function applySingle(ResourceInterface $resource, $id, QueryBuilder $queryBuilder)
+    {
+    }
 }

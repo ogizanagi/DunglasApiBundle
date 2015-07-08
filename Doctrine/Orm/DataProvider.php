@@ -12,6 +12,7 @@
 namespace Dunglas\ApiBundle\Doctrine\Orm;
 
 use Doctrine\Common\Persistence\ManagerRegistry;
+use Doctrine\ORM\QueryBuilder;
 use Dunglas\ApiBundle\Model\DataProviderInterface;
 use Dunglas\ApiBundle\Api\ResourceInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -59,12 +60,17 @@ class DataProvider implements DataProviderInterface
     {
         $entityClass = $resource->getEntityClass();
         $manager = $this->managerRegistry->getManagerForClass($entityClass);
+        $repository = $manager->getRepository($entityClass);
+        /** @var QueryBuilder $queryBuilder */
+        $queryBuilder = $repository->createQueryBuilder('o');
+        $identifier = $manager->getClassMetadata($resource->getEntityClass())->getIdentifierFieldNames()[0];
+        $queryBuilder->where($queryBuilder->expr()->eq('o.'.$identifier, ':id'))->setParameter('id', $id);
 
-        if ($fetchData || !method_exists($manager, 'getReference')) {
-            return $manager->find($entityClass, $id);
+        foreach ($this->extensions as $extension) {
+            $extension->applySingle($resource, $id, $queryBuilder);
         }
 
-        return $manager->getReference($entityClass, $id);
+        return $queryBuilder->getQuery()->getOneOrNullResult();
     }
 
     /**

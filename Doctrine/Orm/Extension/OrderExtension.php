@@ -45,4 +45,11 @@ class OrderExtension implements QueryExtensionInterface
             $queryBuilder->addOrderBy('o.id', $this->order);
         }
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function applySingle(ResourceInterface $resource, $id, QueryBuilder $queryBuilder)
+    {
+    }
 }

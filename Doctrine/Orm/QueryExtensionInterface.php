@@ -28,4 +28,13 @@ interface QueryExtensionInterface
      * @param QueryBuilder      $queryBuilder
      */
     public function apply(ResourceInterface $resource, Request $request, QueryBuilder $queryBuilder);
+
+    /**
+     * @param ResourceInterface $resource
+     * @param int               $id
+     * @param QueryBuilder      $queryBuilder
+     *
+     * @return
+     */
+    public function applySingle(ResourceInterface $resource, $id, QueryBuilder $queryBuilder);
 }

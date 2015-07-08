@@ -108,4 +108,11 @@ class PaginationExtension implements QueryResultExtensionInterface
     {
         return new Paginator(new DoctrineOrmPaginator($queryBuilder));
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function applySingle(ResourceInterface $resource, $id, QueryBuilder $queryBuilder)
+    {
+    }
 }
